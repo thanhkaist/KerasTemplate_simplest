@@ -31,8 +31,14 @@ model.compile(optimizer='adam',
 # Summary model
 model.summary()
 
+# Some advance technique
+
+earlyStopping = EarlyStopping(monitor='val_loss', patience=10, verbose=0, mode='min')
+checkpoint = ModelCheckpoint('./checkpoints/model-{epoch:03d}-{acc:03f}-{val_acc:03f}.h5', verbose=1, monitor='val_loss',save_best_only=True, mode='auto', save_weights_only = True)
+reduce_lr_loss = ReduceLROnPlateau(monitor='val_loss', factor=0.1, patience=7, verbose=1, epsilon=1e-4, mode='min')
+
 # Train model
-history = model.fit(x_train, y_train, epochs=5,batch_size=512,validation_data=(x_val,y_val))
+history = model.fit(x_train, y_train, epochs=5,batch_size=512,validation_data=(x_val,y_val),verbose=2,callbacks=[earlyStopping, checkpoint,reduce_lr_loss])
 
 # Evaluate model
 loss,acc = model.evaluate(x_test, y_test)
