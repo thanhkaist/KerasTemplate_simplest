@@ -1,10 +1,23 @@
+import os
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'  # Disable INFO and WARNING
+
 import tensorflow as tf
 from keras.utils import np_utils
 from keras.callbacks import ModelCheckpoint, EarlyStopping, ReduceLROnPlateau
+from keras import optimizers
+import keras
 import numpy as np
 from sklearn.preprocessing import LabelEncoder
 from sklearn.model_selection import train_test_split, KFold, GridSearchCV
 from my_util import plot_history,full_multiclass_report
+
+
+# solve memory growth
+config = tf.ConfigProto()
+config.gpu_options.allow_growth=True
+config.log_device_placement=False
+sess = tf.Session(config=config)
+
 # Load data
 seed = 1000
 mnist = tf.keras.datasets.mnist
@@ -16,15 +29,17 @@ print("X val shape: " ,x_val.shape,"Y val shape: ",y_val.shape )
 print("X test shape: " ,x_val.shape,"Y test shape: ",y_val.shape )
 
 # Create model
-model = tf.keras.models.Sequential([
-  tf.keras.layers.Flatten(input_shape=(28, 28)),
-  tf.keras.layers.Dense(512, activation=tf.nn.relu),
-  tf.keras.layers.Dropout(0.2),
-  tf.keras.layers.Dense(10, activation=tf.nn.softmax)
+model = keras.models.Sequential([
+  keras.layers.Flatten(input_shape=(28, 28)),
+  keras.layers.Dense(512, activation=tf.nn.relu),
+  keras.layers.Dropout(0.2),
+  keras.layers.Dense(10, activation=tf.nn.softmax)
 ])
 
+adam = optimizers.Adam(lr=0.001, beta_1=0.9, beta_2=0.999, epsilon=None, decay=0.0, amsgrad=False)
+
 # Criterion
-model.compile(optimizer='adam',
+model.compile(optimizer=adam,
               loss='sparse_categorical_crossentropy',
               metrics=['accuracy'])
 
@@ -35,7 +50,7 @@ model.summary()
 
 earlyStopping = EarlyStopping(monitor='val_loss', patience=10, verbose=0, mode='min')
 checkpoint = ModelCheckpoint('./checkpoints/model-{epoch:03d}-{acc:03f}-{val_acc:03f}.h5', verbose=1, monitor='val_loss',save_best_only=True, mode='auto', save_weights_only = True)
-reduce_lr_loss = ReduceLROnPlateau(monitor='val_loss', factor=0.1, patience=7, verbose=1, epsilon=1e-4, mode='min')
+reduce_lr_loss = ReduceLROnPlateau(monitor='val_loss', factor=0.1, patience=7, verbose=1, min_delta=1e-4, mode='min')
 
 # Train model
 history = model.fit(x_train, y_train, epochs=5,batch_size=512,validation_data=(x_val,y_val),verbose=2,callbacks=[earlyStopping, checkpoint,reduce_lr_loss])
@@ -44,19 +59,9 @@ history = model.fit(x_train, y_train, epochs=5,batch_size=512,validation_data=(x
 loss,acc = model.evaluate(x_test, y_test)
 print("Loss : %f    Accuracy: %f" %(loss,acc) )
 
-# Save weights to a TensorFlow Checkpoint file
+# Save weights save latest weight
 model.save_weights('./weights/my_model')
 
-# if we want to save best model
-# earlyStopping = EarlyStopping(monitor='val_loss', patience=10, verbose=0, mode='min')
-# mcp_save = ModelCheckpoint('.mdl_wts.hdf5', save_best_only=True, monitor='val_loss', mode='min')
-# reduce_lr_loss = ReduceLROnPlateau(monitor='val_loss', factor=0.1, patience=7, verbose=1, epsilon=1e-4, mode='min')
-# model.fit(Xtr_more, Ytr_more, batch_size=batch_size, epochs=50, verbose=0, callbacks=[earlyStopping, mcp_save, reduce_lr_loss], validation_split=0.25)
-
-# or this code
-# checkpoint = ModelCheckpoint('model-{epoch:03d}-{acc:03f}-{val_acc:03f}.h5', verbose=1, monitor='val_loss',save_best_only=True, mode='auto')
-# model.compile(optimizer='adam', loss='mean_squared_error', metrics=['accuracy'])
-# model.fit(X, y, epochs=15, validation_split=0.4, callbacks=[checkpoint], verbose=False)
 
 # Restore the model's state,
 # this requires a model with the same architecture.
